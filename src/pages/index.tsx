@@ -1,9 +1,143 @@
+import { useState, useReducer, ReactNode } from 'react'
 import Head from 'next/head'
 import Image from 'next/image'
 import { Inter } from 'next/font/google'
 import styles from '@/styles/Home.module.css'
 
 const inter = Inter({ subsets: ['latin'] })
+
+const options = [{
+  template: {
+    name: "Portfolio",
+    components: [
+      'Portfolio',
+      'Bar',
+      'Baz'
+    ],
+  }
+}
+]
+
+
+const initialState = {}
+
+const ASK_FOR_CLIENT_NAME = 'ASK_FOR_CLIENT_NAME' as const
+const UPDATE_DEPENDENCIES = 'UPDATE_DEPENDENCIES' as const
+
+const DataDependencyReducer = (state: any = initialState, action: { type: string, instructions?: string, dependency?: { key: string, value: any } }) => {
+  switch (action.type) {
+    case UPDATE_DEPENDENCIES:
+      if (action.dependency) {
+        const { key, value } = action.dependency
+        state.dependencies[key] = value
+        return state
+      }
+    case ASK_FOR_CLIENT_NAME:
+      return { ...state, instructions: action.instructions }
+    default:
+      return state
+  }
+}
+
+const Portfolio = ({ dependencies, dispatch }: any) => {
+  // This component has a 'dataDependency' on  portfoioIds (which we obtain by asking for the client name)
+  const action = { type: 'UPDATE_CONTROL_PANEL', instructions: ASK_FOR_CLIENT_NAME }
+
+  if (dependencies.portfolioId) {
+    return <p>Portfolio Component Rendered</p>
+  } else {
+    dispatch(action)
+    return null
+  }
+}
+
+const ComponentMapping = {
+  'Portfolio': Portfolio,
+} as Record<string, any>
+
+const mockGraphqlFetchTemplateData = (_selection: string) => {
+  const { template } = options[0]
+  return template
+}
+
+
+interface MetaData {
+  portfolioId?: string,
+  securityId?: string
+}
+
+const Report = ({ template, dependencies, dispatch }: { template: any, dependencies: MetaData, dispatch: any }) => {
+  const Elements = (template.components || []).map(
+    (name: string) => {
+      return () => {
+        const Wrapper = ComponentMapping[name]
+        if (Wrapper) {
+          return <Wrapper dependencies={dependencies} dispatch={dispatch} />
+
+        }
+        return null
+      }
+    })
+
+  return <>
+    {Elements.map(
+      (E: any) => <E depencies={dependencies} dispatch={dispatch} />)
+    }
+  </>
+
+}
+
+const mockFetchGQLClientPortfolio = (_clientName: string) => {
+  const mockResponse = { portfolioId: '12345' }
+  return mockResponse
+}
+
+const DataDependencies = ({ instructions, dispatch }: { instructions: string[], dispatch: any }) => {
+  const handleSubmitClient = () => {
+    const { portfolioId } = mockFetchGQLClientPortfolio('John Smith')
+    dispatch({ UPDATE_DEPENDENCIES, dependency: { key: 'portfolioId', value: portfolioId } })
+  }
+
+  if (instructions.includes(ASK_FOR_CLIENT_NAME)) {
+    return <>
+      <label>Please enter client name so we can fetch portfolio data</label>
+      <input name="client-search-autocomplete" type="text" />
+      <button type="submit" onSubmit={handleSubmitClient}>Fetch Client Data</button>
+    </>
+  } else {
+    return null
+  }
+}
+
+const ControlPanel = () => {
+
+  const [template, setTemplate] = useState({ template: {} } as any)
+
+  const [state, dispatch] = useReducer(DataDependencyReducer, initialState)
+
+  const handleChange = (e: any) => {
+    const selection = e.target.value
+    const myTemplate = mockGraphqlFetchTemplateData(selection)
+    setTemplate(myTemplate)
+  }
+
+
+  return <>
+    <form>
+      <label>Choose a template</label>
+      <select name="templates" onChange={handleChange}>
+        {
+          options.map(
+            (option) => <option value={option.template.name}>{option.template.name}</option>
+          )}
+      </select>
+    </form>
+
+    <DataDependencies instructions={state.instructions || []} dispatch={dispatch} />
+
+    <Report dependencies={state.deps} template={template} dispatch={dispatch} />
+  </>
+}
 
 export default function Home() {
   return (
@@ -15,6 +149,7 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className={styles.main}>
+        <ControlPanel />
         <div className={styles.description}>
           <p>
             Get started by editing&nbsp;
